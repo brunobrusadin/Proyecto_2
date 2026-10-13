@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 9179883859276914083}
   - component: {fileID: 7418529630147852369}
   - component: {fileID: 8529637410258741369}
+  - component: {fileID: 3008170919917157761}
   m_Layer: 0
   m_Name: Common_Enemy
   m_TagString: Enemy
@@ -136,7 +137,7 @@ NavMeshAgent:
   m_AutoRepath: 1
   m_Height: 2
   m_BaseOffset: 0
-  m_WalkableMask: 4294967295
+  m_WalkableMask: 1
   m_ObstacleAvoidanceType: 4
 --- !u!114 &8529637410258741369
 MonoBehaviour:
@@ -148,7 +149,20 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d21d026005b1ce34db6c10b23e768468, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   agent: {fileID: 7418529630147852369}
   endTileName: End_Tile
+--- !u!114 &3008170919917157761
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4313517377952873893}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bef41d6992c9423498639484d0ad71ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAreaRules
+  element: 0

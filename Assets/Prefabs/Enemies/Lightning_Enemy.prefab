@@ -12,6 +12,9 @@ GameObject:
   - component: {fileID: 3227451221051703253}
   - component: {fileID: 2193263084420280224}
   - component: {fileID: 6359120809118019365}
+  - component: {fileID: 6750322053111754341}
+  - component: {fileID: 8103003538662312638}
+  - component: {fileID: 6709674850183992698}
   m_Layer: 0
   m_Name: Lightning_Enemy
   m_TagString: Enemy
@@ -114,3 +117,52 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!195 &6750322053111754341
+NavMeshAgent:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1875879279830820539}
+  m_Enabled: 1
+  m_AgentTypeID: 0
+  m_Radius: 0.25
+  m_Speed: 3.5
+  m_Acceleration: 8
+  avoidancePriority: 50
+  m_AngularSpeed: 120
+  m_StoppingDistance: 0
+  m_AutoTraverseOffMeshLink: 1
+  m_AutoBraking: 1
+  m_AutoRepath: 1
+  m_Height: 2
+  m_BaseOffset: 0
+  m_WalkableMask: 57
+  m_ObstacleAvoidanceType: 4
+--- !u!114 &8103003538662312638
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1875879279830820539}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bef41d6992c9423498639484d0ad71ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAreaRules
+  element: 3
+--- !u!114 &6709674850183992698
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1875879279830820539}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d21d026005b1ce34db6c10b23e768468, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Common_Enemy
+  agent: {fileID: 0}
+  endTileName: End_Tile

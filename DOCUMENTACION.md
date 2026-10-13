@@ -12,8 +12,10 @@ Juego en Unity 3D donde oleadas de enemigos (`Common_Enemy`, `Fire_Enemy`, `Cold
 `Lightning_Enemy`, `Poison_Enemy`) nacen en el punto `Spawn_Point` y deben recorrer el mapa hasta
 llegar a `End_Tile`. El jugador puede colocar obstáculos para desviar el camino de los enemigos
 (`ObstacleSpawner`). Los enemigos se desplazan mediante **NavMesh Agent** sobre un **NavMesh Surface**
-horneado desde el terreno. Las casillas especiales (`Fire`, `Cold`, `Lightning`, `Poison`) se marcan
-como **no transitables** mediante **NavMesh Modifiers**, forzando a los agentes a rodearlas.
+horneado desde el terreno. Cada casilla especial (`Fire`, `Cold`, `Lightning`, `Poison`) tiene su propia
+**área de navegación** mediante **NavMesh Modifiers**, y cada tipo de enemigo restringe con su
+`NavMeshAgent` qué áreas puede pisar (y a qué coste): el enemigo común **no** pisa ningún terreno de color
+y cada enemigo de color prohíbe una de las áreas ajenas (ver §5.4).
 
 El movimiento de cada enemigo lo resuelve el script `Common_Enemy.cs`, que usa su `NavMeshAgent`
 para navegar hasta `End_Tile` a través de `agent.SetDestination()`.
@@ -28,7 +30,7 @@ La navegación se compone de tres piezas del paquete **AI Navigation** (`com.uni
 |---|---|---|
 | `NavMeshSurface` | Objeto raíz `Terrain` | Genera la malla de navegación a partir de las geometrías del mapa |
 | `NavMeshAgent` | Prefabs de enemigos (`Common_Enemy`) | Mueve cada enemigo por la malla evitando obstáculos |
-| `NavMeshModifier` | Terrenos especiales `Fire`, `Cold`, `Lightning`, `Poison` (área `Water`) y muros `Wall_Tile` | Marca los muros como **Not Walkable** (huecos) y los terrenos especiales como **`Water`** (transitable, alto costo) |
+| `NavMeshModifier` | Terrenos especiales `Fire`/`Cold`/`Lightning`/`Poison` (áreas 3–6) y muros `Wall_Tile` | Marca los muros como **Not Walkable** (huecos) y cada terreno especial con **su propia área de color** (transitable, costo propio) |
 | `NavMeshObstacle` | Prefab `Obstacle` (colocado con clic) | **Recorta** la malla dinámicamente (`Carve = On`) al colocar el obstáculo |
 
 Los **NavMesh Modifiers** no bloquean con física: solo "recortan" la malla de navegación, de modo que
@@ -68,7 +70,7 @@ los agentes la evitan sin saltos ni colisiones.
 1. Seleccionar `Terrain` → `NavMeshSurface` → **Bake**.
 2. El horneado recorre `Ground`, `Walls` y las casillas especiales.
 3. Los muros (`Wall_Tile`) llevan `NavMeshModifier → Not Walkable`, de modo que **recortan la malla como huecos** (además de tener colliders físicos). Si solo se usaran los colliders, los muros del laberinto (que sobresalen apenas 0.5 sobre el suelo, por debajo del *Step Height*) se tratarían como escalones y la malla saldría como un **plano continuo**.
-4. Las casillas especiales llevan `NavMeshModifier → Water` (área 3, coste 10): son **transitables** pero caras, de modo que la ruta por defecto las evita y solo las cruza cuando el pasillo normal está bloqueado (ver §5).
+4. Las casillas especiales llevan `NavMeshModifier → Override Area` con **un área por color**: `Fire` (3), `Cold` (4), `Lightning` (5) y `Poison` (6). Son **transitables** pero caras, de modo que cada enemigo prefiere su propio color y evita las áreas ajenas (ver §5 y §5.4).
 5. Los obstáculos colocados en *runtime* (`ObstacleSpawner`) usan un **`NavMeshObstacle` con `Carve = On`**
    (ver §5.3): recortan la malla dinámicamente al instanciarse, sin re-hornear, y los agentes recalculan su ruta.
 

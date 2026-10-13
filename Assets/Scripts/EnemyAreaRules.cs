@@ -23,6 +23,18 @@ public class EnemyAreaRules : MonoBehaviour
         ApplyAreaCosts();
     }
 
+    private void OnEnable()
+    {
+        ApplyAreaMask();
+        ApplyAreaCosts();
+    }
+
+    private void Start()
+    {
+        ApplyAreaMask();
+        ApplyAreaCosts();
+    }
+
     private static int Bit(int area)
     {
         return 1 << area;

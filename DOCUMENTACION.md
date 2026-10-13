@@ -29,7 +29,7 @@ La navegación se compone de tres piezas del paquete **AI Navigation** (`com.uni
 | Pieza | Dónde | Función |
 |---|---|---|
 | `NavMeshSurface` | Objeto raíz `Terrain` | Genera la malla de navegación a partir de las geometrías del mapa |
-| `NavMeshAgent` | Prefabs de enemigos (`Common_Enemy`) | Mueve cada enemigo por la malla evitando obstáculos |
+| `NavMeshAgent` | Prefabs de enemigos (los 5 tipos) + script `EnemyAreaRules` | Mueve cada enemigo por la malla evitando obstáculos, con su máscara de áreas y costes |
 | `NavMeshModifier` | Terrenos especiales `Fire`/`Cold`/`Lightning`/`Poison` (áreas 3–6) y muros `Wall_Tile` | Marca los muros como **Not Walkable** (huecos) y cada terreno especial con **su propia área de color** (transitable, costo propio) |
 | `NavMeshObstacle` | Prefab `Obstacle` (colocado con clic) | **Recorta** la malla dinámicamente (`Carve = On`) al colocar el obstáculo |
 
@@ -81,7 +81,7 @@ los agentes la evitan sin saltos ni colisiones.
 
 ## 4. Configuración del NavMesh Agent en los enemigos
 
-### 4.1 Componente añadido al prefab `Common_Enemy`
+### 4.1 Componentes añadidos a los prefabs de enemigos
 
 | Ajuste | Valor |
 |---|---|
@@ -258,18 +258,36 @@ Ajustes aplicados para que el horneado genere un laberinto navegable en lugar de
 1. **`NavMeshModifier → Not Walkable` en `Wall_Tile`**: los muros dejan de ser "escalones" y pasan a
    recortar la malla como huecos.
 2. **Radio del agente Humanoid `0.5 → 0.25`** (tanto en los ajustes de horneado como en el
-   `NavMeshAgent` del prefab `Common_Enemy`), alineado con el ancho de pasillo de 1 tile.
-3. **Casillas especiales (Fire/Cold/Lightning/Poison) → área `Water` (índice 3, coste 10)** en lugar de
-   `Not Walkable`: ahora son **transitables pero caras**, de modo que la ruta por defecto sigue siendo el
-   suelo `Walkable` (coste 1) pero, si el pasillo normal se bloquea, el agente prefiere cruzar el terreno
-   especial en vez de quedar varado.
-4. **Re-horneado** del `NavMeshSurface` con persistencia del asset
+   `NavMeshAgent` de los prefabs de enemigos), alineado con el ancho de pasillo de 1 tile.
+3. **Áreas de color Fire/Cold/Lightning/Poison (índices 3–6)** con costes base **diferenciados** (2/3/4/5)
+   definidas en *Project Settings → Navigation → Areas* y asignadas a cada casilla con
+   `NavMeshModifier → Override Area` (en lugar de `Not Walkable`): las casillas son **transitables**.
+4. **Máscaras y costes por agente** (`EnemyAreaRules`): el enemigo común usa solo `Walkable`
+   (`areaMask = 1`, no pisa ningún color); cada enemigo de color prohíbe una de las áreas ajenas y da
+   costes propios a las demás (ver §5.4).
+5. **Re-horneado** del `NavMeshSurface` con persistencia del asset
    `Assets/Scenes/LevelScene/NavMesh-Terrain.asset` y guardado de la escena `LevelScene`.
 
-**Resultado verificado en ejecución:**
+**Resultado verificado:**
 
-- Malla resultante: **607 vértices / 283 triángulos** (incluye ahora las casillas especiales como área `Water`).
-- Ruta `Spawn_Point (-12, 0)` → `End_Tile (-12, 14)` por defecto: `NavMeshPath.status = PathComplete`, **27 corners**, sin pisar el área `Water`.
-- Al **excluir el área 3** de la máscara, esa misma ruta pasa a `PathPartial`: confirma que las casillas
-  especiales actúan como desvío transitable cuando hace falta.
-- Coste en ejecución: `NavMesh.GetAreaCost(3) = 10`, `NavMesh.GetAreaFromName("Water") = 3`.
+- Áreas en ejecución: `NavMesh.GetAreaFromName("Fire"/"Cold"/"Lightning"/"Poison") = 3/4/5/6`, con
+  costes base `2/3/4/5`.
+- Malla resultante: **607 vértices / 283 triángulos**.
+- Máscaras de área serializadas en los prefabs: `Common = 1`, `Fire = 105`, `Cold = 89`,
+  `Lightning = 57`, `Poison = 113` (los bits codifican `Walkable` + las áreas de color permitidas).
+- Rutas `Spawn_Point (-12, 0)` → `End_Tile (-12, 14)` calculadas con la máscara y los costes de cada tipo
+  de enemigo (`NavMesh.CalculatePath` + `NavMeshQueryFilter`):
+
+  | Enemigo | Máscara | Estado | Tramos |
+  |---|---|---|---|
+  | `Common` | `1` | `PathComplete` | **46** (rodea todos los colores) |
+  | `Fire` | `105` | `PathComplete` | 16 |
+  | `Cold` | `89` | `PathComplete` | 12 |
+  | `Lightning` | `57` | `PathComplete` | 24 |
+  | `Poison` | `113` | `PathComplete` | 24 |
+
+- El enemigo **común** obtiene una ruta mucho más larga (46 tramos) porque **no puede pisar ningún
+  color**, mientras que los enemigos de color **acortan** el camino usando sus áreas permitidas:
+  confirma que la máscara y los costes se aplican por agente.
+- Material/color de cada prefab verificado: `Common` blanco, `Fire` naranja, `Cold` azul,
+  `Lightning` amarillo, `Poison` verde.

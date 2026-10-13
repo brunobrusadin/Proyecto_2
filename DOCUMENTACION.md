@@ -96,10 +96,11 @@ los agentes la evitan sin saltos ni colisiones.
 | Radius | `0.25` |
 | Height | `2` |
 | Base Offset | `0` |
-| Walkable Mask | Todas las áreas caminables (excluye `Not Walkable`) |
+| Walkable Mask | `Walkable` únicamente (área 0) — el enemigo común **no** pisa ningún color |
 
 El prefab `Common_Enemy` contiene: `Transform`, `MeshFilter`, `MeshRenderer`, `CapsuleCollider`,
-**`NavMeshAgent`** y el script **`Common_Enemy`** (con la referencia al agente ya asignada).
+**`NavMeshAgent`**, el script **`Common_Enemy`** y el script **`EnemyAreaRules`** (que fija la máscara de
+áreas y los costos por agente en `Awake`). La referencia al agente se auto-asigna en `Awake`.
 
 ### 4.2 Lógica de navegación (`Common_Enemy.cs`)
 
@@ -137,43 +138,49 @@ EnemySpawner (InvokeRepeating + spawnPoint)
 
 ---
 
-## 5. NavMesh Modifiers: terrenos especiales (alto costo) y muros
+## 5. NavMesh Modifiers: terrenos especiales por color y muros
 
 Las casillas especiales del mapa son instancias de los prefabs:
 `Fire_Tile`, `Cold_Tile`, `Lightning_Tile`, `Poison_Tile` (agrupadas bajo `Special`, capa 6).
 
-A los **terrenos especiales** se les asigna un **área transitable de alto costo** (ver tabla). El **mismo
-componente** se aplica al prefab `Wall_Tile` (bajo `Walls`, capa 7), pero con `Area = Not Walkable`, para que
-cada muro recorte la malla como un hueco.
+A cada **terreno especial** se le asigna **su propia área de color** (transitable, costo propio). El
+**mismo componente** se aplica al prefab `Wall_Tile` (bajo `Walls`, capa 7), pero con
+`Area = Not Walkable`, para que cada muro recorte la malla como un hueco.
 
-Cada una debe llevar un componente **`NavMeshModifier`** configurado así:
+Cada casilla especial lleva un componente **`NavMeshModifier`** configurado así:
 
 | Ajuste | Valor | Efecto |
 |---|---|---|
 | Override Area | `On` | La casilla usa un área propia en vez de la del Surface |
-| Area | `Water` | La casilla es **transitable** pero con **alto costo** (área 3, coste 10) |
-| Ignore From Build | `Off` | Aunque es no transitable, **sí participa** del horneado (recorta la malla) |
+| Area | `Fire` / `Cold` / `Lightning` / `Poison` | Área de color propia de la casilla (índices 3–6) |
+| Ignore From Build | `Off` | La casilla **sí participa** del horneado (aparece transitable en la malla) |
 | Affects Agent Type | `Humanoid` | Solo afecta a los agentes Humanoid |
 
 ### 5.1 Resultado sobre la malla
 
 1. El `NavMeshSurface` hornea el suelo (`Ground`) como área `Walkable`.
-2. Cada casilla `Fire`/`Cold`/`Lightning`/`Poison` con `Override Area → Water` (coste 10) **sí aparece** en
-   la malla como transitable.
-3. Los `NavMeshAgent` prefieren el suelo `Walkable` (coste 1) y **solo pisan el área `Water`** cuando el
-   pasillo normal está bloqueado (p. ej. por un obstáculo), evitando quedar varados.
+2. Cada casilla `Fire`/`Cold`/`Lightning`/`Poison` con `Override Area` **sí aparece** en la malla como
+   transitable, pero etiquetada con **su** área de color (3/4/5/6).
+3. Cada `NavMeshAgent` filtra las áreas con su `Walkable Mask` y les da un **costo propio** (ver §5.4): el
+   enemigo común usa solo `Walkable`; cada enemigo de color prefiere su propia área (coste 1) y solo pisa
+   las áreas ajenas permitidas a **alto costo**, mientras que su área prohibida queda **fuera de su máscara**.
 4. `Walls` llevan el mismo `NavMeshModifier → Not Walkable`: cada `Wall_Tile` abre un **hueco** en la malla, de modo que los agentes solo transitan por los pasillos.
 
 ### 5.2 Áreas de navegación usadas
 
-| Área | Índice | Coste | Uso |
+| Área | Índice | Coste base | Uso |
 |---|---|---|---|
-| `Walkable` | 0 | 1 | Suelo normal; ruta preferida por los enemigos |
+| `Walkable` | 0 | 1 | Suelo normal; ruta preferida por todos los enemigos |
 | `Not Walkable` | 1 | 1 | Muros (`Wall_Tile`): no transitables (huecos en la malla) |
-| `Water` | 3 | 10 | Terrenos especiales (Fire, Cold, Lightning, Poison): transitables pero caros |
+| `Jump` | 2 | 2 | Reservada (sin uso actual) |
+| `Fire` | 3 | 2 | Casillas `Fire_Tile` (naranja) |
+| `Cold` | 4 | 3 | Casillas `Cold_Tile` (azul) |
+| `Lightning` | 5 | 4 | Casillas `Lightning_Tile` (amarillo) |
+| `Poison` | 6 | 5 | Casillas `Poison_Tile` (verde) |
 
-> Cualquier área adicional (`Jump`, `Swim`, costos específicos) puede añadirse desde
-> *Window → AI → Navigation* con sus costos por agente en la pestaña *Areas*.
+> Los costes **base** son los del proyecto (*Project Settings → Navigation → Areas*). Además, cada
+> enemigo de color **sobreescribe los costos en tiempo de ejecución** con `NavMeshAgent.SetAreaCost()`
+> para que sus áreas ajenas sean mucho más caras (§5.4).
 
 ### 5.3 NavMesh Obstacle en los obstáculos (Carve)
 
@@ -190,6 +197,33 @@ El prefab `Obstacle.prefab` (instanciado por `ObstacleSpawner` al hacer clic) ll
 Con `Carve = On` el enemigo **no atraviesa** el obstáculo: su `NavMeshAgent` detecta el hueco y, gracias a
 `Auto Repath`, recalcula el camino para rodearlo en tiempo real (sin re-hornear la malla).
 
+### 5.4 Matriz de áreas, colores y costos por tipo de agente
+
+Cada prefab de enemigo lleva el script `EnemyAreaRules`, que en `Awake` fija su **máscara de áreas**
+(`NavMeshAgent.areaMask`) y un **costo por área** propio (`NavMeshAgent.SetAreaCost`). El enemigo
+**común** solo puede pisar `Walkable`; cada enemigo de color puede pisar `Walkable`, **su** área (barata)
+y **dos** áreas ajenas (una a coste medio y otra a coste alto), y tiene **una** área **prohibida** (queda
+fuera de su máscara).
+
+| Enemigo | Color (RGB) | Material | Área propia (coste) | Área prohibida | Otras permitidas (coste) | `areaMask` |
+|---|---|---|---|---|---|---|
+| `Common_Enemy` | blanco (1, 1, 1) | `Common.mat` | — | Fire, Cold, Lightning, Poison | — | `1` (solo Walkable) |
+| `Fire_Enemy` | naranja (1, 0.334, 0) | `Fire.mat` | Fire (1) | Cold | Lightning (5), Poison (10) | `105` |
+| `Cold_Enemy` | azul (0, 0.24, 0.849) | `Cold.mat` | Cold (1) | Lightning | Poison (5), Fire (10) | `89` |
+| `Lightning_Enemy` | amarillo (1, 0.953, 0) | `Lightning.mat` | Lightning (1) | Poison | Fire (5), Cold (10) | `57` |
+| `Poison_Enemy` | verde (0, 0.509, 0.116) | `Poison.mat` | Poison (1) | Fire | Cold (5), Lightning (10) | `113` |
+
+Notas de la matriz:
+
+- **Enemigo común:** su máscara (`1` = bit del área 0) excluye las áreas 3–6, por lo que **no puede pisar
+  ningún terreno de color**; si el camino normal se bloquea, se detiene antes que cruzar un color.
+- **Enemigos de color:** cada uno tiene **una** área prohibida (bit a 0 en la máscara) y **dos** áreas
+  ajenas permitidas con costos altos y **diferenciados** (5 y 10), de modo que siempre prefiere `Walkable`
+  y su propio color.
+- La máscara (`areaMask`) controla **qué** áreas se pueden pisar; los costos (`SetAreaCost`) controlan
+  **cuánto** cuesta cada una. Ambos se configuran por agente.
+- Bits de la máscara: `1<<0`=Walkable, `1<<3`=Fire, `1<<4`=Cold, `1<<5`=Lightning, `1<<6`=Poison.
+
 ---
 
 ## 6. Scripts relacionados del mapa
@@ -202,6 +236,7 @@ Con `Carve = On` el enemigo **no atraviesa** el obstáculo: su `NavMeshAgent` de
 | `ObstacleControls.cs` | Botones de UI que activan/quitan el spawn de obstáculos |
 | `SpawnType.cs` | Botones de UI que eligen el tipo de enemigo a spawnear |
 | `Common_Enemy.cs` | Navega hasta `End_Tile` con `agent.SetDestination()` |
+| `EnemyAreaRules.cs` | Fija la máscara de áreas y los costos por agente del `NavMeshAgent` (matriz §5.4) |
 
 ---
 
@@ -209,8 +244,8 @@ Con `Carve = On` el enemigo **no atraviesa** el obstáculo: su `NavMeshAgent` de
 
 - Paquete **AI Navigation** instalado (`com.unity.ai.navigation` 2.0.14) — ya presente en el proyecto.
 - `NavMeshSurface` en `Terrain` con la malla **horneada** (agente Humanoid con `Radius = 0.25`).
-- Prefab `Common_Enemy` con `NavMeshAgent` (`Radius = 0.25`) + script `Common_Enemy` — ya configurados.
-- `NavMeshModifier` aplicado a `Wall_Tile` (`Not Walkable`) y a las casillas especiales Fire/Cold/Lightning/Poison (área `Water`, coste 10).
+- Prefabs de enemigos con `NavMeshAgent` (`Radius = 0.25`) + scripts `Common_Enemy` y `EnemyAreaRules` — ya configurados.
+- `NavMeshModifier` aplicado a `Wall_Tile` (`Not Walkable`) y a las casillas especiales Fire/Cold/Lightning/Poison con **su área de color** (`Fire`=3, `Cold`=4, `Lightning`=5, `Poison`=6).
 - `End_Tile` presente en la escena con nombre exacto `End_Tile` (el script lo busca por nombre).
 
 ---

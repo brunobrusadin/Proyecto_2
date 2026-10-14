@@ -230,7 +230,7 @@ Notas de la matriz:
 
 | Script | Rol |
 |---|---|
-| `EnemySpawner.cs` | Instancia enemigos periódicamente desde `Spawn_Point` y cambia el tipo de oleada |
+| `EnemySpawner.cs` | Genera enemigos cada **3 s** rotando el tipo en orden (`Common`→`Fire`→`Cold`→`Lightning`→`Poison`), con un **máximo de 5 enemigos vivos** |
 | `EnemyDespawner.cs` | Destruye enemigos que llegan a la meta (`OnTriggerEnter`, tag `Enemy`) |
 | `ObstacleSpawner.cs` | Coloca/elimina obstáculos con el mouse para alterar el camino de los agentes |
 | `ObstacleControls.cs` | Botones de UI que activan/quitan el spawn de obstáculos |

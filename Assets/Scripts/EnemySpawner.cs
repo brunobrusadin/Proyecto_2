@@ -2,43 +2,59 @@ using UnityEngine;
 
 public class EnemySpawner : MonoBehaviour
 {
-    // Enum para representar los diferentes tipos de enemigos que se pueden generar
+    // Enum con los tipos de enemigos que se pueden generar
     public enum SpawnType : byte { Common, Fire, Cold, Lightning, Poison, Random }
-    public GameObject spawnPoint; // Refencia al punto de generación de enemigos, al principio del mapa
-    public GameObject[] enemyPrefabs; // Array de prefabs de enemigos que se pueden generar
-    private float spawnRate = 5f; // Intervalo de tiempo entre cada spawn
-    private float spawnStart = 2f; // Tiempo de espera antes de que comience el primer spawn
-    private SpawnType spawn; // Tipo de enemigo que se va a generar
+
+    [Header("Referencias")]
+    public GameObject spawnPoint;      // Punto de generación (inicio del mapa)
+    public GameObject[] enemyPrefabs;  // Prefabs en orden: Common, Fire, Cold, Lightning, Poison
+
+    [Header("Configuracion de spawn")]
+    public float spawnInterval = 3f;   // Intervalo de tiempo entre cada spawn (3 segundos)
+    public float spawnStart = 2f;      // Tiempo de espera antes del primer spawn
+    public int maxEnemies = 5;         // Máximo de enemigos vivos al mismo tiempo
+
+    private int cycleIndex = 0;        // Posición actual en la rotación de tipos
+    private bool manual = false;       // Si la UI fija un tipo, se desactiva la rotación
+    private SpawnType spawn;           // Tipo elegido manualmente desde la UI
 
     void Start()
     {
-        // Seteamos el spawn inicial a enemigos comunes
-        spawn = SpawnType.Common;
-        // Iniciamos el spawn de enemigos
-        InvokeRepeating("SpawnRandomEnemy", spawnStart, spawnRate);
+        // Arrancamos el spawn repetido: primer spawn tras 'spawnStart', luego cada 'spawnInterval'
+        InvokeRepeating("SpawnNextEnemy", spawnStart, spawnInterval);
     }
 
-    private void SpawnRandomEnemy()
+    private void SpawnNextEnemy()
     {
-        int spawnIndex = 0;
-        // Si el tipo de spawn es Random, seleccionamos un índice aleatorio del array de prefabs de enemigos
-        if (spawn == SpawnType.Random)
+        // 1) Límite: si ya hay 'maxEnemies' enemigos vivos, no generamos ninguno más
+        if (GameObject.FindGameObjectsWithTag("Enemy").Length >= maxEnemies)
         {
-            spawnIndex = Random.Range(0, enemyPrefabs.Length);
+            return;
         }
-        // Si no, usamos el índice correspondiente al tipo de spawn seleccionado
+
+        // 2) Elegimos el tipo de enemigo que toca
+        int spawnIndex;
+        if (manual)
+        {
+            // Modo manual: la UI eligió un tipo concreto
+            spawnIndex = (spawn == SpawnType.Random) ? Random.Range(0, enemyPrefabs.Length) : (int)spawn;
+        }
         else
         {
-            spawnIndex = (int)spawn;
+            // Rotación automática en orden: Common -> Fire -> Cold -> Lightning -> Poison -> ...
+            spawnIndex = cycleIndex % enemyPrefabs.Length;
+            cycleIndex++;
         }
-        // Instanciamos el prefab del enemigo seleccionado en la posición del spawn point
+
+        // 3) Instanciamos el enemigo en la posición del punto de spawn
         GameObject enemyPrefab = enemyPrefabs[spawnIndex];
         Instantiate(enemyPrefab, spawnPoint.transform.position, Quaternion.identity);
     }
 
+    // La UI puede fijar un tipo concreto; al usarse, se desactiva la rotación automática
     public void SetSpawnType(SpawnType newSpawnType)
     {
-        // Cambiamos el tipo de spawn a uno nuevo
+        manual = true;
         spawn = newSpawnType;
     }
 }
